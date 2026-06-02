@@ -17,6 +17,7 @@ import type {
 } from 'sequelize';
 import { literal } from 'sequelize';
 
+
 @Table({
   tableName: 'zones',
   timestamps: true,
