@@ -1,0 +1,680 @@
+{
+  "info": {
+    "name": "Parking Backend API",
+    "description": "Postman collection for the Parking backend. Import this with the companion environment file, then set `baseUrl` before testing internal user auth.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                ""
+              ]
+            },
+            "description": "Checks that the backend is reachable."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Internal Users Auth",
+      "description": "Frontend-facing JWT auth flow for internal users. Login supports username/password for verified `admin` or `operator` users.",
+      "item": [
+        {
+          "name": "Login With Username and Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login succeeded', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "if (json.accessToken) {",
+                  "  pm.environment.set('internalAccessToken', json.accessToken);",
+                  "}",
+                  "if (json.refreshToken) {",
+                  "  pm.environment.set('internalRefreshToken', json.refreshToken);",
+                  "}",
+                  "if (json.user && json.user.id) {",
+                  "  pm.environment.set('internalUserId', json.user.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{internalUsername}}\",\n  \"password\": \"{{internalPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/internal/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "internal",
+                "login"
+              ]
+            },
+            "description": "Authenticates an internal user with username/password and saves `internalAccessToken`, `internalRefreshToken`, and `internalUserId`."
+          },
+          "response": []
+        },
+        {
+          "name": "Login With WhatsApp OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('OTP login succeeded', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "if (json.accessToken) {",
+                  "  pm.environment.set('internalAccessToken', json.accessToken);",
+                  "}",
+                  "if (json.refreshToken) {",
+                  "  pm.environment.set('internalRefreshToken', json.refreshToken);",
+                  "}",
+                  "if (json.user && json.user.id) {",
+                  "  pm.environment.set('internalUserId', json.user.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"{{phoneNumber}}\",\n  \"code\": \"{{otpCode}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/internal/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "internal",
+                "login"
+              ]
+            },
+            "description": "Alternative internal-user login using a valid unused WhatsApp OTP. Saves `internalAccessToken`, `internalRefreshToken`, and `internalUserId`."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Internal User Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Refresh succeeded', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "if (json.accessToken) {",
+                  "  pm.environment.set('internalAccessToken', json.accessToken);",
+                  "}",
+                  "if (json.refreshToken) {",
+                  "  pm.environment.set('internalRefreshToken', json.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{internalRefreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/internal/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "internal",
+                "refresh"
+              ]
+            },
+            "description": "Rotates the internal user refresh token and saves the new access/refresh tokens."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout Internal User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{internalAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/internal/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "internal",
+                "logout"
+              ]
+            },
+            "description": "Revokes the stored refresh token for the authenticated internal user. Expects `204 No Content`."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin Zones and Nodes",
+      "description": "Protected internal-admin endpoints. Run Internal Users Auth > Login first so `internalAccessToken` is available.",
+      "item": [
+        {
+          "name": "Create Zone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Zone created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "if (json.id) {",
+                  "  pm.environment.set('zoneId', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{internalAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Downtown Zone\",\n  \"city\": \"Amman\",\n  \"description\": \"Main smart parking zone\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/zones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "zones"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Zones",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{internalAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/zones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "zones"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Zone",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{internalAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/zones/{{zoneId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "zones",
+                "{{zoneId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Node",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Node created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "if (json.id) {",
+                  "  pm.environment.set('nodeId', json.id);",
+                  "}",
+                  "if (json.nodeUid) {",
+                  "  pm.environment.set('nodeUid', json.nodeUid);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{internalAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nodeUid\": \"{{nodeUid}}\",\n  \"name\": \"Parking Node 1\",\n  \"zoneId\": \"{{zoneId}}\",\n  \"latitude\": 31.9539,\n  \"longitude\": 35.9106,\n  \"status\": \"UNKNOWN\",\n  \"batteryLevel\": 100,\n  \"signalStrength\": -55,\n  \"firmwareVersion\": \"1.0.0\",\n  \"isOnline\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/nodes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "nodes"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Nodes",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{internalAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/nodes?zoneId={{zoneId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "nodes"
+              ],
+              "query": [
+                {
+                  "key": "zoneId",
+                  "value": "{{zoneId}}"
+                },
+                {
+                  "key": "status",
+                  "value": "AVAILABLE",
+                  "disabled": true
+                },
+                {
+                  "key": "isOnline",
+                  "value": "true",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Node",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{internalAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/nodes/{{nodeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "nodes",
+                "{{nodeId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Attach Node To Zone",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{internalAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"zoneId\": \"{{zoneId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/nodes/{{nodeId}}/zone",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "nodes",
+                "{{nodeId}}",
+                "zone"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Nodes In Zone",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{internalAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/zones/{{zoneId}}/nodes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "zones",
+                "{{zoneId}}",
+                "nodes"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Device and MQTT Auth",
+      "description": "Device-facing authentication endpoints already present in the backend.",
+      "item": [
+        {
+          "name": "Authenticate Device",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Device auth succeeded', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "if (json.accessToken) {",
+                  "  pm.environment.set('deviceAccessToken', json.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"{{deviceId}}\",\n  \"deviceSecret\": \"{{deviceSecret}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/device",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "device"
+              ]
+            },
+            "description": "Authenticates an ESP/device and saves `deviceAccessToken`."
+          },
+          "response": []
+        },
+        {
+          "name": "Validate MQTT Connection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{deviceId}}\",\n  \"password\": \"{{deviceAccessToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/mqtt",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "mqtt"
+              ]
+            },
+            "description": "Validates MQTT username/password where password is the device JWT."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "internalUsername",
+      "value": "superadmin@gmail.com"
+    },
+    {
+      "key": "internalPassword",
+      "value": "123456Seven@1"
+    },
+    {
+      "key": "phoneNumber",
+      "value": "+962790000001"
+    },
+    {
+      "key": "otpCode",
+      "value": "123456"
+    },
+    {
+      "key": "internalAccessToken",
+      "value": ""
+    },
+    {
+      "key": "internalRefreshToken",
+      "value": ""
+    },
+    {
+      "key": "internalUserId",
+      "value": ""
+    },
+    {
+      "key": "zoneId",
+      "value": ""
+    },
+    {
+      "key": "nodeId",
+      "value": ""
+    },
+    {
+      "key": "nodeUid",
+      "value": "esp32-node-001"
+    },
+    {
+      "key": "deviceId",
+      "value": ""
+    },
+    {
+      "key": "deviceSecret",
+      "value": ""
+    },
+    {
+      "key": "deviceAccessToken",
+      "value": ""
+    }
+  ]
+}
