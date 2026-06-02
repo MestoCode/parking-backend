@@ -3,12 +3,21 @@ import { InjectModel } from '@nestjs/sequelize';
 import { Op, WhereOptions } from 'sequelize';
 import { Device, DeviceType } from '../../database/model/device.model';
 
+/**
+ * A device is considered "online" only if it reported within this window.
+ * Anything older (or deactivated) is treated as turned off and rendered grey
+ * on the map. The gateway self-reports every ~20s, so 45s tolerates one miss.
+ */
+export const DEVICE_ONLINE_WINDOW_MS = 45_000;
+
 export interface LocatedDevice {
   deviceId: string;
   type: DeviceType;
   latitude: number;
   longitude: number;
   lastSeenAt: Date | null;
+  isActive: boolean;
+  online: boolean;
 }
 
 /**
@@ -50,27 +59,39 @@ export class DevicesService {
   }
 
   /**
-   * Active mesh devices that have reported a location, newest sighting first.
-   * Powers the public map / admin "live devices" view. Decimal columns come
-   * back as strings from Sequelize, so coordinates are normalised to numbers.
+   * Every mesh device that has reported a location, newest sighting first.
+   * Powers the public map / admin "live devices" view. Inactive or stale
+   * devices are still returned (flagged `online: false`) so the UI can render
+   * them as "turned off" rather than dropping them. Decimal columns come back
+   * as strings from Sequelize, so coordinates are normalised to numbers.
    */
   async listLocated(): Promise<LocatedDevice[]> {
     const devices = await this.deviceModel.findAll({
       where: {
-        isActive: true,
         latitude: { [Op.ne]: null },
         longitude: { [Op.ne]: null },
       },
       order: [['lastSeenAt', 'DESC']],
     });
 
-    return devices.map((device) => ({
-      deviceId: device.deviceId,
-      type: device.type,
-      latitude: Number(device.latitude),
-      longitude: Number(device.longitude),
-      lastSeenAt: device.lastSeenAt,
-    }));
+    const now = Date.now();
+
+    return devices.map((device) => {
+      const lastSeenAt = device.lastSeenAt;
+      const isFresh =
+        lastSeenAt !== null &&
+        now - new Date(lastSeenAt).getTime() <= DEVICE_ONLINE_WINDOW_MS;
+
+      return {
+        deviceId: device.deviceId,
+        type: device.type,
+        latitude: Number(device.latitude),
+        longitude: Number(device.longitude),
+        lastSeenAt,
+        isActive: device.isActive,
+        online: device.isActive && isFresh,
+      };
+    });
   }
 
   async updateLastSeen(deviceId: string): Promise<void> {
