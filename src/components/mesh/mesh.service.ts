@@ -33,24 +33,28 @@ export class MeshService {
       throw new BadRequestException('deviceId or macAddress is required');
     }
 
-    const affected = await this.devicesService.updateLocation({
+    const { matched, changed } = await this.devicesService.updateLocation({
       deviceId,
       macAddress,
       latitude,
       longitude,
     });
 
-    if (affected === 0) {
+    if (!matched) {
       this.logger.warn(
         `Location report for unknown device (deviceId=${deviceId ?? '-'} mac=${macAddress ?? '-'}) — seed it in the devices table to persist.`,
       );
-    } else {
+    } else if (changed) {
       this.logger.log(
         `Updated location for ${deviceId ?? macAddress} -> ${latitude}, ${longitude}`,
       );
+    } else {
+      this.logger.debug(
+        `Location unchanged for ${deviceId ?? macAddress} — skipped write`,
+      );
     }
 
-    return { matched: affected > 0, deviceId: deviceId ?? null };
+    return { matched, deviceId: deviceId ?? null };
   }
 
   private optionalString(value: unknown): string | null {

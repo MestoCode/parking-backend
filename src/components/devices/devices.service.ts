@@ -41,27 +41,37 @@ export class DevicesService {
   /**
    * Persist the hardcoded coordinates a mesh device reports over the network.
    * Matches an existing active device by deviceId (preferred) or MAC address.
-   * Returns the number of rows updated (0 = no matching/seeded device).
+   * Skips the DB write entirely when the location is unchanged (saves writes).
    */
-  async updateLocation(input: UpdateDeviceLocationInput): Promise<number> {
+  async updateLocation(
+    input: UpdateDeviceLocationInput,
+  ): Promise<{ matched: boolean; changed: boolean }> {
     const where: WhereOptions<Device> = { isActive: true };
     if (input.deviceId) {
       where.deviceId = input.deviceId;
     } else if (input.macAddress) {
       where.macAddress = input.macAddress;
     } else {
-      return 0;
+      return { matched: false, changed: false };
     }
 
-    const [affected] = await this.deviceModel.update(
-      {
-        latitude: input.latitude.toFixed(6),
-        longitude: input.longitude.toFixed(6),
-        lastSeenAt: new Date(),
-      },
-      { where },
-    );
+    const device = await this.deviceModel.findOne({ where });
+    if (!device) {
+      return { matched: false, changed: false };
+    }
 
-    return affected;
+    const latitude = input.latitude.toFixed(6);
+    const longitude = input.longitude.toFixed(6);
+
+    if (device.latitude === latitude && device.longitude === longitude) {
+      return { matched: true, changed: false };
+    }
+
+    device.latitude = latitude;
+    device.longitude = longitude;
+    device.lastSeenAt = new Date();
+    await device.save();
+
+    return { matched: true, changed: true };
   }
 }
