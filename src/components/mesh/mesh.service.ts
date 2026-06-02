@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { DeviceType } from '../../database/model/device.model';
 import { DevicesService } from '../devices/devices.service';
 import { IngestDeviceDto } from './dto/ingest-device.dto';
 
@@ -23,6 +24,9 @@ export class MeshService {
     const macAddress = this.optionalString(dto.macAddress ?? dto.mac);
 
     if (dto.latitude === undefined || dto.longitude === undefined) {
+      this.logger.debug(
+        `ESP32 mesh payload ignored because coordinates are missing (deviceId=${deviceId ?? '-'} mac=${macAddress ?? '-'})`,
+      );
       return { matched: false, deviceId: deviceId ?? null };
     }
 
@@ -30,19 +34,28 @@ export class MeshService {
     const longitude = this.coordinate(dto.longitude, 'longitude', -180, 180);
 
     if (!deviceId && !macAddress) {
+      this.logger.warn(
+        `ESP32 mesh payload rejected because deviceId and macAddress are missing (latitude=${latitude} longitude=${longitude})`,
+      );
       throw new BadRequestException('deviceId or macAddress is required');
     }
 
-    const { matched, changed } = await this.devicesService.updateLocation({
-      deviceId,
-      macAddress,
-      latitude,
-      longitude,
-    });
+    const { matched, changed, created } =
+      await this.devicesService.updateLocation({
+        deviceId,
+        macAddress,
+        type: this.deviceType(dto.type),
+        latitude,
+        longitude,
+      });
 
-    if (!matched) {
+    if (created) {
+      this.logger.log(
+        `Auto-provisioned device ${deviceId ?? macAddress} -> ${latitude}, ${longitude}`,
+      );
+    } else if (!matched) {
       this.logger.warn(
-        `Location report for unknown device (deviceId=${deviceId ?? '-'} mac=${macAddress ?? '-'}) — seed it in the devices table to persist.`,
+        `Location report for unknown device (deviceId=${deviceId ?? '-'} mac=${macAddress ?? '-'}) - send a valid type to auto-provision.`,
       );
     } else if (changed) {
       this.logger.log(
@@ -50,11 +63,17 @@ export class MeshService {
       );
     } else {
       this.logger.debug(
-        `Location unchanged for ${deviceId ?? macAddress} — skipped write`,
+        `Location unchanged for ${deviceId ?? macAddress} - skipped write`,
       );
     }
 
     return { matched, deviceId: deviceId ?? null };
+  }
+
+  private deviceType(value: unknown): DeviceType | null {
+    return value === DeviceType.Gateway || value === DeviceType.Node
+      ? value
+      : null;
   }
 
   private optionalString(value: unknown): string | null {
