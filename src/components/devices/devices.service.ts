@@ -110,7 +110,8 @@ export class DevicesService {
    * Persist the hardcoded coordinates a mesh device reports over the network.
    * Matches an existing device by deviceId (preferred) or MAC address, and
    * auto-provisions the row when it is missing (so the table self-heals if a
-   * device is deleted). Skips the DB write when the location is unchanged.
+   * device is deleted). When the location is unchanged it still refreshes
+   * lastSeenAt so an actively-reporting device stays "online".
    */
   async updateLocation(
     input: UpdateDeviceLocationInput,
@@ -147,6 +148,11 @@ export class DevicesService {
     }
 
     if (device.latitude === latitude && device.longitude === longitude) {
+      // Coordinates are hardcoded so they never change, but the device is still
+      // actively reporting. Refresh lastSeenAt (cheap single-column write) so the
+      // online/offline indicator reflects that it checked in.
+      device.lastSeenAt = new Date();
+      await device.save({ fields: ['lastSeenAt'] });
       return { matched: true, changed: false, created: false };
     }
 
