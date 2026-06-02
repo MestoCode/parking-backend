@@ -1,7 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { WhereOptions } from 'sequelize';
+import { Op, WhereOptions } from 'sequelize';
 import { Device, DeviceType } from '../../database/model/device.model';
+
+export interface LocatedDevice {
+  deviceId: string;
+  type: DeviceType;
+  latitude: number;
+  longitude: number;
+  lastSeenAt: Date | null;
+}
 
 /**
  * Placeholder secret for mesh-auto-provisioned devices. The /mesh/ingest path is
@@ -39,6 +47,30 @@ export class DevicesService {
         isActive: true,
       },
     });
+  }
+
+  /**
+   * Active mesh devices that have reported a location, newest sighting first.
+   * Powers the public map / admin "live devices" view. Decimal columns come
+   * back as strings from Sequelize, so coordinates are normalised to numbers.
+   */
+  async listLocated(): Promise<LocatedDevice[]> {
+    const devices = await this.deviceModel.findAll({
+      where: {
+        isActive: true,
+        latitude: { [Op.ne]: null },
+        longitude: { [Op.ne]: null },
+      },
+      order: [['lastSeenAt', 'DESC']],
+    });
+
+    return devices.map((device) => ({
+      deviceId: device.deviceId,
+      type: device.type,
+      latitude: Number(device.latitude),
+      longitude: Number(device.longitude),
+      lastSeenAt: device.lastSeenAt,
+    }));
   }
 
   async updateLastSeen(deviceId: string): Promise<void> {
